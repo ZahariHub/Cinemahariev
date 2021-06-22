@@ -23,11 +23,11 @@ namespace UI
 		private void OnEnable()
 		{
 			resultsContainer.SetActive(false);
-			getRandomRecommendationButton.interactable = false;
-			loadingLabel.gameObject.SetActive(true);
 
 			if (recommendations == null)
 			{
+				getRandomRecommendationButton.interactable = false;
+				loadingLabel.gameObject.SetActive(true);
 				StartCoroutine(GetRecommendationsCoroutine());
 			}
 		}
