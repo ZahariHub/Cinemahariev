@@ -3,34 +3,28 @@ using System.Collections;
 using System.Collections.Generic;
 using IMDb;
 using Newtonsoft.Json;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.UI;
 
-public class FindMovieMenu : MonoBehaviour
+public class TopMoviesMenu : MonoBehaviour
 {
+	[SerializeField] private int maxTitles = 10;
+	[SerializeField] private TMP_Dropdown genreDropdown;
 	[SerializeField] private GameObject resultsContainer;
 	[SerializeField] private MovieResultUI movieResultPrefab;
 
-	private void OnEnable()
+	private IEnumerator FindTopMoviesCoroutine(string movieGenre)
 	{
-		resultsContainer.SetActive(false);
-	}
-
-	private IEnumerator FindMoveResultsCoroutine(string movieName)
-	{
-		TitleFindQuery titleFindQuery = null;
+		List<string> titleIDs = new List<string>();
 		yield return SendIMDBRequest
 		(
-			"https://imdb8.p.rapidapi.com/title/find?q=" + movieName,
-			request => titleFindQuery = JsonConvert.DeserializeObject<TitleFindQuery>(request.downloadHandler.text)
+			"https://imdb8.p.rapidapi.com/title/get-popular-movies-by-genre?genre=/chart/popular/genre/" + movieGenre.ToLower(),
+			request => titleIDs = JsonConvert.DeserializeObject<List<string>>(request.downloadHandler.text)
 		);
-
-		if (titleFindQuery == null)
-		{
-			yield break;
-		}
-
-		if (titleFindQuery.Results.Count > 0)
+		
+		if (titleIDs.Count > 0)
 		{
 			resultsContainer.SetActive(true);
 
@@ -39,23 +33,16 @@ public class FindMovieMenu : MonoBehaviour
 				Destroy(oldResult.gameObject);
 			}
 		}
-
-		foreach (Result result in titleFindQuery.Results)
+		
+		int moviesCount = Math.Min(maxTitles, titleIDs.Count);
+		
+		for (int i = 0; i < moviesCount; ++i)
 		{
-			const string titleIdentifier = "/title/";
-
-			// This is not a title - possibly an actor's name
-			if (!result.Id.Contains(titleIdentifier))
-			{
-				continue;
-			}
-			
-			// TODO: Filter out things that are not movies/tv-shows/videos
-
 			TitleDetailsQuery titleDetailsQuery = null;
+			const string titleIdentifier = "/title/";
 			yield return SendIMDBRequest
 			(
-				"https://imdb8.p.rapidapi.com/title/get-details?tconst=" + result.Id.Replace(titleIdentifier, string.Empty),
+				"https://imdb8.p.rapidapi.com/title/get-details?tconst=" + titleIDs[i].Replace(titleIdentifier, string.Empty),
 				request => titleDetailsQuery = JsonConvert.DeserializeObject<TitleDetailsQuery>(request.downloadHandler.text)
 			);
 
@@ -66,7 +53,10 @@ public class FindMovieMenu : MonoBehaviour
 			
 			MovieResultUI movieResultUI = Instantiate(movieResultPrefab, resultsContainer.transform);
 			movieResultUI.SetMovieData(titleDetailsQuery);
+			
 		}
+
+
 	}
 
 	private IEnumerator SendIMDBRequest(string URI, Action<UnityWebRequest> callback)
@@ -90,8 +80,13 @@ public class FindMovieMenu : MonoBehaviour
 		}
 	}
 
-	public void FindMovieResults(string movieName)
+	public void FindTopMovies(int genreIndex)
 	{
-		StartCoroutine(FindMoveResultsCoroutine(movieName));
+		if (genreIndex == 0) // Placeholder "Genres" text
+		{
+			return;
+		}
+		
+		StartCoroutine(FindTopMoviesCoroutine(genreDropdown.options[genreIndex].text));
 	}
 }
